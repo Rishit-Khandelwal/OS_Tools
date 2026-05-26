@@ -8,4 +8,7 @@ void parser_input(char *input, char **args);
 int  builtin_command(char **args);
 void execute_command(char **args);
 
+int has_pipe(char **args, char **cmd1, char **cmd2);
+void execute_pipe(char **cmd1, char **cmd2);
+
 #endif
