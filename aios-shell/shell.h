@@ -2,7 +2,23 @@
 #define SHELL_H
 
 #define MAX_INPUT 1024
-#define MAX_ARGS  50
+#define MAX_ARGS  50    
+
+#define MAX_JOBS 50
+extern pid_t shell_pgid;
+
+
+typedef enum { 
+    RUNNING,   // = 0
+    STOPPED,   // = 1  
+    DONE       // = 2
+} JobStatus;
+
+typedef struct {
+    pid_t     pid;
+    JobStatus status;
+    char      cmd[MAX_INPUT];
+} Job;
 
 typedef struct {
     char *infile;
@@ -23,4 +39,16 @@ int  builtin_command(char **args);
 void execute_pipe(char **cmd1, char **cmd2);        
 void execute_redirect(char **args, Redirect *r);
 void execute_command(char **args);
+
+// jobs.c
+extern Job jobs[];
+extern int job_count;
+void cleanup_jobs();
+
+// jobs.c
+void add_job(pid_t pid, char *cmd);
+void remove_job(pid_t pid);
+void list_jobs();
+void sigchld_handler(int sig);
+void sigtstp_handler(int sig);
 #endif
