@@ -1,11 +1,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 #include "shell.h"
 
 int main() {
     char input[MAX_INPUT];
-
+    signal(SIGINT , SIG_IGN);                      // Ignore Ctrl+C in the shell itself
     while (1) {
         char cwd[1024];
         if (getcwd(cwd, sizeof(cwd)) != NULL)
@@ -14,11 +15,11 @@ int main() {
             printf("AiSH$ ");
         fflush(stdout);
 
-        if (fgets(input, sizeof(input), stdin) == NULL) {
-            printf("Goodbye!\n");
+        if (fgets(input, sizeof(input), stdin) == NULL) {   // Handle EOF (Ctrl+D)
+            printf("Goodbye!\n");                            
             break;
         }
-        input[strcspn(input, "\n")] = 0;
+        input[strcspn(input, "\n")] = 0;                    // Remove trailing newline
         if (strlen(input) == 0) continue;
 
         char *args[MAX_ARGS];

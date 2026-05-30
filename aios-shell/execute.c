@@ -5,6 +5,7 @@
 #include <fcntl.h> 
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 #include "shell.h"
 
 void execute_command(char **args) {
@@ -12,10 +13,12 @@ void execute_command(char **args) {
     if (pid < 0) {
         perror("Fork failed");
     } else if (pid == 0) {
+        signal(SIGINT, SIG_DFL);    // Restore default Ctrl+C behavior in child
         execvp(args[0], args);
         perror("Execution failed");
         exit(1);
     } else {
+        signal(SIGINT, SIG_IGN);    // Ignore Ctrl+C in parent while waiting
         wait(NULL);
     }
 }
@@ -27,14 +30,14 @@ void execute_pipe(char **cmd1, char **cmd2) {
 
     int fd[2];
     pipe(fd);
-
     pid_t pid1 = fork();
     if (pid1 < 0) { perror("Fork 1 failed"); return; }
     else if (pid1 == 0) {
-        dup2(fd[1], STDOUT_FILENO);   // left cmd writes to pipe
+        signal(SIGINT, SIG_DFL);        // Restore default Ctrl+C behavior in child
+        dup2(fd[1], STDOUT_FILENO);     // left cmd writes to pipe
         close(fd[0]);
         close(fd[1]);
-        if (r1.infile != NULL) {      // handle < on left side
+        if (r1.infile != NULL) {        // handle < on left side
             int in = open(r1.infile, O_RDONLY);
             if (in < 0) { perror("open infile"); exit(1); }
             dup2(in, STDIN_FILENO);
@@ -48,10 +51,11 @@ void execute_pipe(char **cmd1, char **cmd2) {
     pid_t pid2 = fork();
     if (pid2 < 0) { perror("Fork 2 failed"); wait(NULL); return; }
     else if (pid2 == 0) {
-        dup2(fd[0], STDIN_FILENO);    // right cmd reads from pipe
+        signal(SIGINT, SIG_DFL);        // Restore default Ctrl+C behavior in child
+        dup2(fd[0], STDIN_FILENO);      // right cmd reads from pipe
         close(fd[1]);
         close(fd[0]);
-        if (r2.outfile != NULL) {     // handle > or >> on right side
+        if (r2.outfile != NULL) {       // handle > or >> on right side
             int flags = O_WRONLY | O_CREAT | (r2.append ? O_APPEND : O_TRUNC);
             int out = open(r2.outfile, flags, 0644);
             if (out < 0) { perror("open outfile"); exit(1); }
@@ -62,7 +66,7 @@ void execute_pipe(char **cmd1, char **cmd2) {
         perror("Execution failed");
         exit(1);
     }
-
+    signal(SIGINT, SIG_IGN);        // Ignore Ctrl+C in parent while waiting
     close(fd[0]);
     close(fd[1]);
     wait(NULL);
@@ -76,6 +80,7 @@ void execute_redirect(char **args, Redirect *r) {
         return;
     }
     else if (pid == 0) {
+        signal(SIGINT, SIG_DFL);    // Restore default Ctrl+C behavior in child
         // input redirection  < infile
         if (r->infile != NULL) {
             int fd = open(r->infile, O_RDONLY);
@@ -97,7 +102,8 @@ void execute_redirect(char **args, Redirect *r) {
         perror("Execution Failed");
         exit(1);
     }
-    else {
+    else {  
+        signal(SIGINT, SIG_IGN);        // Ignore Ctrl+C in parent while waiting  
         wait(NULL);
     }
 }
