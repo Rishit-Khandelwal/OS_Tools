@@ -45,7 +45,15 @@ int builtin_command(char **args) {
         setenv(var, val, 1);
         return 1;
     }
-
+//-----------------------------------------------------------------------------
+    if(strcmp(args[0], "unset")==0){
+        if(args[1]==NULL){
+            printf("unset: no variable given\n");
+            return 1;
+        }
+        unsetenv(args[1]);
+        return 1;
+    }
 //-----------------------------------------------------------------------------
     if (strcmp(args[0], "fg") == 0) {
         if (args[1] == NULL) {
