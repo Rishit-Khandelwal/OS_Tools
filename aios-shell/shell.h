@@ -31,6 +31,7 @@ void parser_input(char *input, char **args);
 int  parse_pipe(char **args, char **cmd1, char **cmd2);
 int parse_redirects(char **args, Redirect *r);
 int parse_multicommands(char **args , char ***cmds);
+void parse_env_vars(char **args);
 
 // builtins.c
 int  builtin_command(char **args);

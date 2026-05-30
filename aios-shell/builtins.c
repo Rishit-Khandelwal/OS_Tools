@@ -16,22 +16,45 @@ int builtin_command(char **args) {
             perror("cd failed");
         return 1;
     }
-
+//-----------------------------------------------------------------------------
     if (strcmp(args[0], "exit") == 0) {
         printf("Goodbye!\n");
         exit(0);
     }
-
+//-----------------------------------------------------------------------------
     if (strcmp(args[0], "jobs") == 0) {
         list_jobs();
         return 1;
     }
 
+//-----------------------------------------------------------------------------
+
+    if(strcmp(args[0], "export")==0){
+        if(args[1]==NULL){
+            printf("export:no variable given\n");
+            return 1;
+        }
+        char *eq= strchr(args[1], '=');
+        if(eq==NULL){
+            printf("export: invalid format use VAR=value\n");
+            return 1;
+        }
+        *eq='\0';
+        char *var=args[1];
+        char *val=eq+1;
+        setenv(var, val, 1);
+        return 1;
+    }
+
+//-----------------------------------------------------------------------------
     if (strcmp(args[0], "fg") == 0) {
-        if (args[1] == NULL) { printf("fg: no job number given\n"); return 1; }
+        if (args[1] == NULL) {
+             printf("fg: no job number given\n"); return 1; }
         int idx = atoi(args[1]) - 1;
-        if (idx < 0 || idx >= job_count) { printf("fg: no such job\n"); return 1; }
-        if (jobs[idx].status == DONE) { printf("fg: job already done\n"); return 1; }
+        if (idx < 0 || idx >= job_count) { 
+            printf("fg: no such job\n"); return 1; }
+        if (jobs[idx].status == DONE) { 
+            printf("fg: job already done\n"); return 1; }
 
         pid_t pid = jobs[idx].pid;
         jobs[idx].status = RUNNING;
@@ -56,7 +79,7 @@ int builtin_command(char **args) {
         }
         return 1;
     }
-
+//-------------------------------------------------------------------------------
     if (strcmp(args[0], "bg") == 0) {
         if (args[1] == NULL) { printf("bg: no job number given\n"); return 1; }
         int idx = atoi(args[1]) - 1;

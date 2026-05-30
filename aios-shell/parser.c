@@ -1,5 +1,6 @@
 #include <string.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include "shell.h"
 
 void parser_input(char *input, char **args) {
@@ -103,4 +104,17 @@ int parse_multicommands(char **args, char ***cmds) {
     }
     cmds[count] = NULL;
     return count;
+}
+
+void parse_env_vars(char **args){
+    for(int i=0; args[i]!=NULL; i++){
+        if(args[i][0]=='$'){
+            char *var= args[i]+1;
+            char *val= getenv(var);
+            if(val!=NULL)
+                args[i]=val;
+             else 
+                args[i]="no such variable"; 
+        }
+    }
 }

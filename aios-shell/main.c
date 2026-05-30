@@ -52,6 +52,7 @@ int main() {
 
         char *args[MAX_ARGS];
         parser_input(input, args);
+        parse_env_vars(args);
 
         char *cmd1[MAX_ARGS];
         char *cmd2[MAX_ARGS];
@@ -60,16 +61,23 @@ int main() {
 
         if (parse_multicommands(args, cmds) > 1) {
             for (int i = 0; cmds[i] != NULL; i++) {
-                if (parse_pipe(cmds[i], cmd1, cmd2))
-                    execute_pipe(cmd1, cmd2);
-                else if (!builtin_command(cmds[i])) {
+                parse_env_vars(cmds[i]);                //parse env vars for each command
+                if (parse_pipe(cmds[i], cmd1, cmd2)) {   //parse pipe for each command
+                    execute_pipe(cmd1, cmd2);  
+                    parse_env_vars(cmd1);               // parse env vars for pipe commands
+                    parse_env_vars(cmd2);   }            // parse env vars for pipe commands
+                else if (!builtin_command(cmds[i])) {   //  execute if not builtin
                     parse_redirects(cmds[i], &r);
                     execute_redirect(cmds[i], &r);
                 }
             }
         } else if (parse_pipe(args, cmd1, cmd2)) {
+            parse_env_vars(cmd1);                 // ← expand in pipe left
+            parse_env_vars(cmd2);                 // ← expand in pipe right  
             execute_pipe(cmd1, cmd2);
+
         } else if (!builtin_command(args)) {
+            parse_env_vars(args);
             parse_redirects(args, &r);
             execute_redirect(args, &r);
         }
