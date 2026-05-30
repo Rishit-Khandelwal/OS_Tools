@@ -14,6 +14,7 @@ typedef struct {
 void parser_input(char *input, char **args);
 int  parse_pipe(char **args, char **cmd1, char **cmd2);
 int parse_redirects(char **args, Redirect *r);
+int parse_multicommands(char **args , char ***cmds);
 
 // builtins.c
 int  builtin_command(char **args);
@@ -21,5 +22,5 @@ int  builtin_command(char **args);
 // execute.c
 void execute_pipe(char **cmd1, char **cmd2);        
 void execute_redirect(char **args, Redirect *r);
-
+void execute_command(char **args);
 #endif

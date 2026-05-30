@@ -6,7 +6,8 @@
 
 int main() {
     char input[MAX_INPUT];
-    signal(SIGINT , SIG_IGN);                      // Ignore Ctrl+C in the shell itself
+    signal(SIGINT, SIG_IGN);
+
     while (1) {
         char cwd[1024];
         if (getcwd(cwd, sizeof(cwd)) != NULL)
@@ -15,25 +16,39 @@ int main() {
             printf("AiSH$ ");
         fflush(stdout);
 
-        if (fgets(input, sizeof(input), stdin) == NULL) {   // Handle EOF (Ctrl+D)
-            printf("Goodbye!\n");                            
+        if (fgets(input, sizeof(input), stdin) == NULL) {
+            printf("Goodbye!\n");
             break;
         }
-        input[strcspn(input, "\n")] = 0;                    // Remove trailing newline
+        input[strcspn(input, "\n")] = 0;
         if (strlen(input) == 0) continue;
 
         char *args[MAX_ARGS];
         parser_input(input, args);
 
+        // ── single execution path ──────────────────
         char *cmd1[MAX_ARGS];
         char *cmd2[MAX_ARGS];
+        char **cmds[MAX_ARGS];
         Redirect r;
 
-        if (parse_pipe(args, cmd1, cmd2)) {
-            execute_pipe(cmd1, cmd2);           // ← redirects handled inside
+        if (parse_multicommands(args, cmds) > 1) {
+            // "ls ; pwd ; whoami"
+            for (int i = 0; cmds[i] != NULL; i++) {
+                if (parse_pipe(cmds[i], cmd1, cmd2))
+                    execute_pipe(cmd1, cmd2);
+                else if (!builtin_command(cmds[i])) {
+                    parse_redirects(cmds[i], &r);
+                    execute_redirect(cmds[i], &r);
+                }
+            }
+        } else if (parse_pipe(args, cmd1, cmd2)) {
+            // "ls | grep main"
+            execute_pipe(cmd1, cmd2);
 
         } else if (!builtin_command(args)) {
-            parse_redirects(args, &r);          // ← redirects handled here
+            // "ls > out.txt" or just "ls"
+            parse_redirects(args, &r);
             execute_redirect(args, &r);
         }
     }

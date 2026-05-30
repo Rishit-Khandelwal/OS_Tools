@@ -3,7 +3,25 @@
 #include "shell.h"
 
 void parser_input(char *input, char **args) {
-    char *token = strtok(input, " ");
+    static char processed[MAX_INPUT * 2];
+    int j = 0;
+    for (int i = 0; input[i] != '\0'; i++) {
+        if (input[i]=='|' || input[i]==';' || 
+            input[i]=='>' || input[i]=='<') {
+            processed[j++] = ' ';
+            processed[j++] = input[i];
+            // handle >> as one token
+            if (input[i]=='>' && input[i+1]=='>') {
+                processed[j++] = input[++i];
+            }
+            processed[j++] = ' ';
+        } else {
+            processed[j++] = input[i];
+        }
+    }
+    processed[j] = '\0';
+    
+    char *token = strtok(processed, " ");
     int i = 0;
     while (token != NULL && i < MAX_ARGS - 1) {
         args[i++] = token;              
@@ -60,4 +78,19 @@ int parse_redirects (char **args , Redirect *r){
         i++;
     }
     return 0;
+}
+
+int parse_multicommands(char **args , char ***cmds){
+    int count=0;
+    int i=0;
+    cmds[count++]=&args[0];     // First command starts at args[0]
+    while(args[i]!=NULL){
+        if(strcmp(args[i],";")==0){
+            args[i]=NULL;          // Null-terminate current command
+            cmds[count++]=&args[i+1];  // Next command starts after ;
+        }
+        i++;
+    }
+    cmds[count]=NULL;           // Null-terminate the cmds array
+    return count;               // Return number of commands parsed
 }
