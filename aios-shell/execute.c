@@ -8,66 +8,88 @@
 #include <termios.h>
 #include "shell.h"
 
-void execute_pipe(char **cmd1, char **cmd2) {
-    Redirect r1, r2;
-    parse_redirects(cmd1, &r1);
-    parse_redirects(cmd2, &r2);
-
-    int fd[2];
-    pipe(fd);
-
-    pid_t pid1 = fork();
-    if (pid1 < 0) { perror("Fork 1 failed"); return; }
-    else if (pid1 == 0) {
-        setpgid(0, 0);                      // ✅ own process group
-        signal(SIGINT,  SIG_DFL);
-        signal(SIGTSTP, SIG_DFL);
-        signal(SIGCHLD, SIG_DFL);
-        dup2(fd[1], STDOUT_FILENO);         // write to pipe
-        close(fd[0]);
-        close(fd[1]);
-        if (r1.infile != NULL) {
-            int in = open(r1.infile, O_RDONLY);
-            if (in < 0) { perror("open infile"); exit(1); }
-            dup2(in, STDIN_FILENO);
-            close(in);
+void execute_pipeline(char **cmds[], int count) {
+    // create count-1 pipes
+    int fd[count-1][2];
+    for (int i = 0; i < count-1; i++) {
+        if (pipe(fd[i]) < 0) {
+            perror("pipe failed");
+            return;
         }
-        execvp(cmd1[0], cmd1);
-        perror("Execution failed");
-        exit(1);
     }
 
-    pid_t pid2 = fork();
-    if (pid2 < 0) { perror("Fork 2 failed"); wait(NULL); return; }
-    else if (pid2 == 0) {
-        setpgid(0, pid1);                   // ✅ same group as pid1
-        signal(SIGINT,  SIG_DFL);
-        signal(SIGTSTP, SIG_DFL);
-        signal(SIGCHLD, SIG_DFL);
-        dup2(fd[0], STDIN_FILENO);          // read from pipe
-        close(fd[1]);
-        close(fd[0]);
-        if (r2.outfile != NULL) {
-            int flags = O_WRONLY|O_CREAT|(r2.append ? O_APPEND : O_TRUNC);
-            int out = open(r2.outfile, flags, 0644);
-            if (out < 0) { perror("open outfile"); exit(1); }
-            dup2(out, STDOUT_FILENO);
-            close(out);
+    pid_t pgid = -1;    // track process group
+
+    for (int i = 0; i < count; i++) {
+        Redirect r;
+        parse_redirects(cmds[i], &r);
+
+        pid_t pid = fork();
+        if (pid < 0) { perror("Fork failed"); return; }
+        else if (pid == 0) {
+            // ── process group ──────────────────────────
+            if (pgid == -1) pgid = getpid();
+            setpgid(0, pgid);               // all children same group
+
+            // ── signals ────────────────────────────────
+            signal(SIGINT,  SIG_DFL);
+            signal(SIGTSTP, SIG_DFL);
+            signal(SIGCHLD, SIG_DFL);
+            signal(SIGTTOU, SIG_DFL);
+            signal(SIGTTIN, SIG_DFL);
+
+            // ── connect pipes ──────────────────────────
+            if (i > 0)                      // not first — read from prev pipe
+                dup2(fd[i-1][0], STDIN_FILENO);
+            if (i < count-1)                // not last — write to next pipe
+                dup2(fd[i][1], STDOUT_FILENO);
+
+            // close ALL pipe fds — child doesn't need them
+            for (int j = 0; j < count-1; j++) {
+                close(fd[j][0]);
+                close(fd[j][1]);
+            }
+
+            // ── redirections ───────────────────────────
+            if (r.infile != NULL) {
+                int in = open(r.infile, O_RDONLY);
+                if (in < 0) { perror("open infile"); exit(1); }
+                dup2(in, STDIN_FILENO);
+                close(in);
+            }
+            if (r.outfile != NULL) {
+                int flags = O_WRONLY|O_CREAT|(r.append ? O_APPEND : O_TRUNC);
+                int out = open(r.outfile, flags, 0644);
+                if (out < 0) { perror("open outfile"); exit(1); }
+                dup2(out, STDOUT_FILENO);
+                close(out);
+            }
+
+            execvp(cmds[i][0], cmds[i]);
+            perror("Execution failed");
+            exit(1);
+        } else {
+            // ── parent sets pgid too — race condition fix ──
+            if (pgid == -1) pgid = pid;
+            setpgid(pid, pgid);
         }
-        execvp(cmd2[0], cmd2);
-        perror("Execution failed");
-        exit(1);
     }
 
-    // parent
-    setpgid(pid1, pid1);                    // ✅ race condition fix
-    setpgid(pid2, pid1);
-    close(fd[0]);
-    close(fd[1]);
-    tcsetpgrp(STDIN_FILENO, pid1);          // ✅ give terminal to pipe group
-    wait(NULL);
-    wait(NULL);
-    tcsetpgrp(STDIN_FILENO, shell_pgid);    // ✅ take terminal back
+    // parent closes all pipe fds
+    for (int i = 0; i < count-1; i++) {
+        close(fd[i][0]);
+        close(fd[i][1]);
+    }
+
+    // give terminal to pipeline group
+    tcsetpgrp(STDIN_FILENO, pgid);
+
+    // wait for all children
+    for (int i = 0; i < count; i++)
+        wait(NULL);
+
+    // take terminal back
+    tcsetpgrp(STDIN_FILENO, shell_pgid);
 }
 
 void execute_redirect(char **args, Redirect *r) {

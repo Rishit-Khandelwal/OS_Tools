@@ -35,34 +35,21 @@ void parser_input(char *input, char **args) {
     args[i] = NULL;
 }
 
-int parse_pipe(char **args, char **cmd1, char **cmd2) {
+int parse_all_pipes(char **args, char **cmds[], int max) {
+    int count = 0;
     int i = 0;
-    while (args[i] != NULL) {
+
+    cmds[count++] = &args[0];      // first command starts at args[0]
+
+    while (args[i] != NULL && count < max) {
         if (strcmp(args[i], "|") == 0) {
-            args[i] = NULL;
-
-            // copy left side into cmd1
-            int j = 0;
-            while (args[j] != NULL) {
-                cmd1[j] = args[j];   // ✅ separated
-                j++;
-            }
-            cmd1[j] = NULL;
-
-            // copy right side into cmd2
-            int k = 0;
-            i++;
-            while (args[i] != NULL) {
-                cmd2[k] = args[i];   // ✅ separated
-                k++;
-                i++;
-            }
-            cmd2[k] = NULL;
-            return 1;
+            args[i] = NULL;             // split here — terminates current cmd
+            cmds[count++] = &args[i+1]; // next cmd starts after |
         }
         i++;
     }
-    return 0;
+    cmds[count] = NULL;             // null terminate cmds array
+    return count;                   // number of commands found
 }
 
 int parse_redirects(char **args, Redirect *r) {

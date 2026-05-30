@@ -9,12 +9,11 @@
 #include <errno.h>
 #include "shell.h"
 
-pid_t shell_pgid;   // global — shared with builtins.c via shell.h
+pid_t shell_pgid;
 
 int main() {
     char input[MAX_INPUT];
 
-    // ✅ assign to global directly — no local redeclaration
     shell_pgid = getpid();
     setpgid(shell_pgid, shell_pgid);
     tcsetpgrp(STDIN_FILENO, shell_pgid);
@@ -37,8 +36,7 @@ int main() {
 
         int n = read(STDIN_FILENO, input, MAX_INPUT - 1);
         if (n < 0) {
-            if (errno == EINTR) continue;   // signal interrupted — retry
-            // EIO or other error — don't loop, just retry once
+            if (errno == EINTR) continue;
             continue;
         }
         if (n == 0) {
@@ -52,34 +50,39 @@ int main() {
 
         char *args[MAX_ARGS];
         parser_input(input, args);
-        parse_env_vars(args);
+        parse_env_vars(args);          // expand $VAR in full input first
 
-        char *cmd1[MAX_ARGS];
-        char *cmd2[MAX_ARGS];
+        char **pipe_cmds[MAX_ARGS];
         char **cmds[MAX_ARGS];
         Redirect r;
 
         if (parse_multicommands(args, cmds) > 1) {
+            // "ls ; pwd ; whoami"
             for (int i = 0; cmds[i] != NULL; i++) {
-                parse_env_vars(cmds[i]);                //parse env vars for each command
-                if (parse_pipe(cmds[i], cmd1, cmd2)) {   //parse pipe for each command
-                    execute_pipe(cmd1, cmd2);  
-                    parse_env_vars(cmd1);               // parse env vars for pipe commands
-                    parse_env_vars(cmd2);   }            // parse env vars for pipe commands
-                else if (!builtin_command(cmds[i])) {   //  execute if not builtin
+                parse_env_vars(cmds[i]);
+
+                char **pipe_cmds[MAX_ARGS];
+                int pipe_count = parse_all_pipes(cmds[i], pipe_cmds, MAX_ARGS);
+
+                if (pipe_count > 1) {
+                    execute_pipeline(pipe_cmds, pipe_count);
+                } else if (!builtin_command(cmds[i])) {
                     parse_redirects(cmds[i], &r);
                     execute_redirect(cmds[i], &r);
                 }
             }
-        } else if (parse_pipe(args, cmd1, cmd2)) {
-            parse_env_vars(cmd1);                 // ← expand in pipe left
-            parse_env_vars(cmd2);                 // ← expand in pipe right  
-            execute_pipe(cmd1, cmd2);
+        } else {
+            int pipe_count = parse_all_pipes(args, pipe_cmds, MAX_ARGS);
 
-        } else if (!builtin_command(args)) {
-            parse_env_vars(args);
-            parse_redirects(args, &r);
-            execute_redirect(args, &r);
+            if (pipe_count > 1) {
+                // "ls | grep a | sort"
+                execute_pipeline(pipe_cmds, pipe_count);
+
+            } else if (!builtin_command(args)) {
+                // "ls > out.txt" or just "ls"
+                parse_redirects(args, &r);
+                execute_redirect(args, &r);
+            }
         }
     }
     return 0;

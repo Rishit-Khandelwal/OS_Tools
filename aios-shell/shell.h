@@ -28,7 +28,7 @@ typedef struct {
 
 // parser.c
 void parser_input(char *input, char **args);
-int  parse_pipe(char **args, char **cmd1, char **cmd2);
+int  parse_all_pipes(char **args, char **cmds[], int max);
 int parse_redirects(char **args, Redirect *r);
 int parse_multicommands(char **args , char ***cmds);
 void parse_env_vars(char **args);
@@ -37,9 +37,10 @@ void parse_env_vars(char **args);
 int  builtin_command(char **args);
 
 // execute.c
-void execute_pipe(char **cmd1, char **cmd2);        
 void execute_redirect(char **args, Redirect *r);
 void execute_command(char **args);
+void execute_pipeline(char **cmds[], int count);
+
 
 // jobs.c
 extern Job jobs[];
