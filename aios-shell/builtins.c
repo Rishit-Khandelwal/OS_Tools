@@ -100,5 +100,62 @@ int builtin_command(char **args) {
         return 1;
     }
 
+//-------------------------------------------------------------------------------
+    if (strcmp(args[0], "history") == 0) {
+        print_history();
+        return 1;
+    }
+//-------------------------------------------------------------------------------
+    if (strcmp(args[0], "!!") == 0) {
+        if (history_count == 0) {
+            printf("No commands in history\n");
+            return 1;
+        }
+        char *last = get_history(history_count - 1);
+        printf("%s\n", last);          // print command being run
+        
+        // re-parse and execute last command
+        char copy[MAX_INPUT];
+        strncpy(copy, last, MAX_INPUT);
+        char *args2[MAX_ARGS];
+        parser_input(copy, args2);
+        parse_env_vars(args2);
+        if (!builtin_command(args2)) {
+            Redirect r;
+            parse_redirects(args2, &r);
+            execute_redirect(args2, &r);
+        }
+        return 1;
+    }
+//-------------------------------------------------------------------------------
+    if (strcmp(args[0], "help") == 0) {
+        printf("\n");
+        printf("  AiSH — Available Commands\n");
+        printf("─────────────────────────────────────\n");
+        printf("BUILTINS:\n");
+        printf("  cd [dir]          change directory\n");
+        printf("  exit              exit the shell\n");
+        printf("  jobs              list background jobs\n");
+        printf("  fg [n]            bring job n to foreground\n");
+        printf("  bg [n]            resume job n in background\n");
+        printf("  export VAR=val    set environment variable\n");
+        printf("  unset VAR         unset environment variable\n");
+        printf("  history           show command history\n");
+        printf("  !!                run last command\n");
+        printf("  help              show this help\n");
+        printf("\n");
+        printf("FEATURES:\n");
+        printf("  cmd | cmd2        pipe output\n");
+        printf("  cmd > file        redirect output\n");
+        printf("  cmd >> file       append output\n");
+        printf("  cmd < file        redirect input\n");
+        printf("  cmd1 ; cmd2       run multiple commands\n");
+        printf("  cmd &             run in background\n");
+        printf("  $VAR              environment variable\n");
+        printf("  UP/DOWN arrows    navigate history\n");
+        printf("\n");
+        return 1;
+    }
+//-------------------------------------------------------------------------------
     return 0;
 }

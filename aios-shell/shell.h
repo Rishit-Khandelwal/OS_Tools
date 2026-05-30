@@ -1,3 +1,6 @@
+#include <termios.h>    
+#include <sys/types.h>
+
 #ifndef SHELL_H
 #define SHELL_H
 
@@ -5,6 +8,7 @@
 #define MAX_ARGS  50    
 
 #define MAX_JOBS 50
+#define MAX_HISTORY 100
 extern pid_t shell_pgid;
 
 
@@ -42,7 +46,7 @@ void execute_command(char **args);
 void execute_pipeline(char **cmds[], int count);
 
 
-// jobs.c
+// jobs.c 
 extern Job jobs[];
 extern int job_count;
 void cleanup_jobs();
@@ -53,4 +57,18 @@ void remove_job(pid_t pid);
 void list_jobs();
 void sigchld_handler(int sig);
 void sigtstp_handler(int sig);
+
+// history.c
+extern char *history[];
+extern int   history_count;
+
+// history.c
+void add_history(char *input);
+void print_history();
+char *get_history(int idx);
+void free_history();
+void enable_raw_mode();
+void disable_raw_mode(struct termios *orig);
+char *read_input(char *buf, int max);
+
 #endif

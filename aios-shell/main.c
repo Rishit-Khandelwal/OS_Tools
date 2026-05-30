@@ -34,30 +34,26 @@ int main() {
             printf("AiSH$ ");
         fflush(stdout);
 
-        int n = read(STDIN_FILENO, input, MAX_INPUT - 1);
-        if (n < 0) {
-            if (errno == EINTR) continue;
-            continue;
-        }
-        if (n == 0) {
+        // ✅ replaced read() with arrow-aware input
+        if (read_input(input, MAX_INPUT) == NULL) {
             printf("Goodbye!\n");
             break;
         }
 
-        input[n] = '\0';
         input[strcspn(input, "\n")] = 0;
         if (strlen(input) == 0) continue;
 
+        add_history(input);            // ✅ store every command
+
         char *args[MAX_ARGS];
         parser_input(input, args);
-        parse_env_vars(args);          // expand $VAR in full input first
+        parse_env_vars(args);
 
         char **pipe_cmds[MAX_ARGS];
         char **cmds[MAX_ARGS];
         Redirect r;
 
         if (parse_multicommands(args, cmds) > 1) {
-            // "ls ; pwd ; whoami"
             for (int i = 0; cmds[i] != NULL; i++) {
                 parse_env_vars(cmds[i]);
 
@@ -75,15 +71,14 @@ int main() {
             int pipe_count = parse_all_pipes(args, pipe_cmds, MAX_ARGS);
 
             if (pipe_count > 1) {
-                // "ls | grep a | sort"
                 execute_pipeline(pipe_cmds, pipe_count);
-
             } else if (!builtin_command(args)) {
-                // "ls > out.txt" or just "ls"
                 parse_redirects(args, &r);
                 execute_redirect(args, &r);
             }
         }
     }
+
+    free_history();    // ✅ clean up on exit
     return 0;
 }
